@@ -1,287 +1,91 @@
 import 'package:flutter/material.dart';
 import '../models/transaction_model.dart';
+import '../services/api_service.dart';
 
 class AddTransactionPage extends StatefulWidget {
-  const AddTransactionPage({super.key});
+  final FinanceTransaction? transaction;
+
+  const AddTransactionPage({super.key, this.transaction});
 
   @override
   State<AddTransactionPage> createState() => _AddTransactionPageState();
 }
 
 class _AddTransactionPageState extends State<AddTransactionPage> {
-  final titleController = TextEditingController();
-  final amountController = TextEditingController();
-  TransactionType type = TransactionType.income;
+  late TextEditingController titleController;
+  late TextEditingController amountController;
+  late TransactionType type;
+  bool isLoading = false;
 
-  void save() {
-    if (titleController.text.isEmpty || amountController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Harap isi semua field'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
+  @override
+  void initState() {
+    super.initState();
+    titleController =
+        TextEditingController(text: widget.transaction?.title ?? '');
+    amountController = TextEditingController(
+        text: widget.transaction?.amount.toString() ?? '');
+    type = widget.transaction?.type ?? TransactionType.income;
+  }
+
+  Future<void> save() async {
+    setState(() => isLoading = true);
+
+    final t = FinanceTransaction(
+      title: titleController.text,
+      amount: double.parse(amountController.text),
+      type: type,
+      date: DateTime.now(),
+    );
+
+    if (widget.transaction == null) {
+      await ApiService.createTransaction(t);
+    } else {
+      await ApiService.updateTransaction(widget.transaction!.id!, t);
     }
 
-    Navigator.pop(
-      context,
-      FinanceTransaction(
-        title: titleController.text,
-        amount: double.parse(amountController.text),
-        type: type,
-        date: DateTime.now(),
-      ),
-    );
+    Navigator.pop(context, true);
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Tambah Transaksi',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
-        elevation: 0,
+        title: Text(widget.transaction == null
+            ? 'Tambah Transaksi'
+            : 'Edit Transaksi'),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // HEADER
-            Container(
-              padding: const EdgeInsets.all(20),
-              margin: const EdgeInsets.only(bottom: 30),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                    Theme.of(context).colorScheme.primary.withOpacity(0.05),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.add_circle_outlined,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Catat setiap transaksi\nkeuangan Anda',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
+            TextField(
+              controller: titleController,
+              decoration: const InputDecoration(labelText: 'Judul'),
             ),
-
-            // JUDUL
-            Text(
-              'Judul Transaksi',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.primary,
-                fontSize: 14,
-              ),
+            TextField(
+              controller: amountController,
+              decoration: const InputDecoration(labelText: 'Jumlah'),
+              keyboardType: TextInputType.number,
             ),
-            const SizedBox(height: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: isDarkMode ? Colors.grey[900] : Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
-                ),
-              ),
-              child: TextField(
-                controller: titleController,
-                decoration: const InputDecoration(
-                  hintText: 'Contoh: Gaji Bulanan, Belanja, dll',
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.all(16),
-                ),
-                style: const TextStyle(fontSize: 16),
-              ),
+            DropdownButton<TransactionType>(
+              value: type,
+              items: const [
+                DropdownMenuItem(
+                    value: TransactionType.income,
+                    child: Text('Pemasukan')),
+                DropdownMenuItem(
+                    value: TransactionType.expense,
+                    child: Text('Pengeluaran')),
+              ],
+              onChanged: (v) => setState(() => type = v!),
             ),
-
             const SizedBox(height: 20),
-
-            // JUMLAH
-            Text(
-              'Jumlah',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.primary,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: isDarkMode ? Colors.grey[900] : Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
-                ),
-              ),
-              child: TextField(
-                controller: amountController,
-                decoration: const InputDecoration(
-                  hintText: 'Masukkan jumlah',
-                  prefixText: 'Rp ',
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.all(16),
-                ),
-                keyboardType: TextInputType.number,
-                style: const TextStyle(fontSize: 16),
-              ),
-            ),
-
-            const SizedBox(height: 25),
-
-            // TIPE TRANSAKSI
-            Text(
-              'Tipe Transaksi',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Theme.of(context).colorScheme.primary,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: isDarkMode ? Colors.grey[900] : Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isDarkMode ? Colors.grey[700]! : Colors.grey[200]!,
-                ),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<TransactionType>(
-                  value: type,
-                  isExpanded: true,
-                  icon: Icon(
-                    Icons.arrow_drop_down,
-                    color: Theme.of(context).colorScheme.primary,
+            isLoading
+                ? const CircularProgressIndicator()
+                : ElevatedButton(
+                    onPressed: save,
+                    child: const Text('Simpan'),
                   ),
-                  items: [
-                    DropdownMenuItem(
-                      value: TransactionType.income,
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Colors.green.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              Icons.arrow_upward,
-                              color: Colors.green,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Text(
-                            'Pemasukan',
-                            style: TextStyle(fontSize: 16),
-                          ),
-                        ],
-                      ),
-                    ),
-                    DropdownMenuItem(
-                      value: TransactionType.expense,
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Colors.red.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              Icons.arrow_downward,
-                              color: Colors.red,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Text(
-                            'Pengeluaran',
-                            style: TextStyle(fontSize: 16),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() {
-                        type = value;
-                      });
-                    }
-                  },
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 40),
-
-            // TOMBOL SIMPAN
-            ElevatedButton(
-              onPressed: save,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 2,
-              ),
-              child: const Text(
-                'Simpan Transaksi',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // TOMBOL BATAL
-            OutlinedButton(
-              onPressed: () => Navigator.pop(context),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                side: BorderSide(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-              child: const Text(
-                'Batal',
-                style: TextStyle(fontSize: 16),
-              ),
-            ),
           ],
         ),
       ),
